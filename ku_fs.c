@@ -7,7 +7,6 @@
 #define INODE_COUNT 80 // 가능한 inode 개수
 typedef unsigned int uint;
 
-
 void *disk;
 unsigned char *ibmap;
 unsigned char *dbmap;
@@ -28,36 +27,6 @@ typedef struct dentry{
     char name[3];
 } dentry;
 
-void print_disk(void){
-    int prior=-1;
-    for(int i=0;i<PARTITION_SIZE;i++){
-        if(i==BLOCK_SIZE){
-            printf("%d:ibmap 시작\n", i);
-        }else if(i==BLOCK_SIZE*2){
-            printf("%d:dbmap 시작\n", i);
-        }else if(i==BLOCK_SIZE*3){
-            printf("%d:inode table 시작\n", i);
-        }else if(i==BLOCK_SIZE*8){
-            printf("%d:data region 시작\n", i);
-        }
-        unsigned char val=*((unsigned char *)disk+i);
-        if(val !=0){
-            if(prior!=-1 &&prior==val){
-                printf("%d: %.2x ", i,val);
-                continue;
-            }else{
-                printf("\n");
-                printf("%d: %.2x ", i,val);
-                prior=val;
-            }
-        }else{
-            if(prior!=-1){
-                printf("\n");
-                prior=-1;
-            }
-        }
-    }
-}
 int get_empty(unsigned char *bmap, int count){
     // 비트맵(for inode or data block)을 보고
     // 사용가능한(즉 0인)비트 중 가장 앞에 있는 변호 번환
@@ -65,7 +34,6 @@ int get_empty(unsigned char *bmap, int count){
     // 꽉찼을 시 -1
     for (int i=0;i<count;i++){
         if((*(bmap+(i/8))&(1<<(7-(i%8))))==0){
-            printf("%d 중 %d번째 비어있음\n", count, i);
             //update i-bmap
             *(bmap+(i/8))|=(1<<(7-(i%8)));
             return i;
@@ -76,17 +44,6 @@ int get_empty(unsigned char *bmap, int count){
     
 }
 
-void print_inode(inode* inode){
-    printf("=========inode정보==============\n");
-    printf("1. 총 bytes: %d\n", inode->fsize);
-    printf("2. 총 블럭수: %d\n", inode->blocks);
-    printf("3. direct pointers\n");
-    for(int i=0;i<12;i++){
-        printf("%d:%d/ ", i, inode->pointer[i]);
-    }
-    printf("\n===============================\n");
-}
-
 int init(void){
     // allocate memory
     disk=calloc(PARTITION_SIZE,1);
@@ -94,15 +51,6 @@ int init(void){
     dbmap=disk+BLOCK_SIZE*2;
     data_region=disk+BLOCK_SIZE*8;
     inode_table=disk+BLOCK_SIZE*3;
-    printf("디스크 주소 : 0x%p\n", disk);
-    printf("ibmap 주소 : 0x%p\n", ibmap);
-    printf("dbmap 주소 : 0x%p\n", dbmap);
-    printf("data_region 주소 : 0x%p\n", data_region);
-    printf("inode_table : 0x%p\n", inode_table);
-    
-    // print
-    printf("가능한 데이터블록 개수 : %d\n", DATA_BLOCK_COUNT);
-    printf("가능한 inode 개수 : %d\n", INODE_COUNT);
     
     // i-bmap reserved bits (0,1)
     *ibmap|=(8+4)<<4;
@@ -112,9 +60,7 @@ int init(void){
     if(root_inum==-1){
         printf("No space\n");
         return -1;
-    }
-    printf("root의 inum: %d\n", root_inum);
-    
+    }    
     // Update root inode contents
     inode *root_inode=(inode *)inode_table+root_inum;
     // 1. fsize : 80개의 inodes 가능, 각 파일을 표현하기 위해 inum(1B)/Name(3B) 필요
@@ -127,10 +73,6 @@ int init(void){
     }
     root_inode->pointer[root_inode->blocks]=root_dnum;
     root_inode->blocks=1;
-    // print information of root inode
-    print_inode(root_inode);
-    // 전체 디스크 내용 출력
-    //print_disk();
     return 0;
 }
 
@@ -144,21 +86,15 @@ int search_name(char* name, int flag){
     inode *root_inode=(inode *)inode_table+root_inum;
     for(int i=0;i<root_inode->blocks;i++){
         // 데이터 블럭 주소 찾고, 각 entry 찾음
-//        printf("%d 번 데이터블럭\n", root_inode->pointer[i]);
-//        printf("%p\n",data_region+(root_inode->pointer[i])*BLOCK_SIZE);
         dentry *entry=(dentry *)(data_region+(root_inode->pointer[i])*BLOCK_SIZE);
         for(int j=0;j<16;j++){//가능한 inode 16개
-            printf("inum:%d 파일명:%s\n", entry[j].inum, entry[j].name);
             if(entry[j].inum==0)
                 continue;
             if(entry[j].name[0]==name[0] && entry[j].name[1]==name[1]){
                 int inum=entry[j].inum;
-                printf("찾은 파일 정보\n");
-                print_inode((inode *)inode_table+inum);
                 if(flag==1){
                     // delete
                     entry[j].inum=0;
-                    printf("deleted\n");
                 }
                 // 파일 찾음 -> inum 반환
                 return inum;
@@ -195,12 +131,9 @@ int write_file(char fname[3], int size){
             printf("No space\n");
             return 1;
         }
-        printf("%d번 데이터블럭 할당\n", dblock);
         // 2. (direct) pointer to data block (not real 'pointer')
         file_inode->pointer[i]=dblock;
     }
-    // print information of file inode
-    print_inode(file_inode);
     
     // 데이터 넣기
     for(int i=0;i<size;i++){
@@ -212,17 +145,14 @@ int write_file(char fname[3], int size){
     inode *root_inode=(inode *)inode_table+root_inum;
     for(int i=0;i<root_inode->blocks;i++){
         // 데이터 블럭 주소 찾고, 각 entry 찾음
-        printf("%d 번 데이터블럭\n", root_inode->pointer[i]);
         dentry *entry=(dentry *)(data_region+(root_inode->pointer[i])*BLOCK_SIZE);
         for(int j=0;j<16;j++){//가능한 inode 16개
-            printf("inum:%d 파일명:%s\n", entry[j].inum, entry[j].name);
             if(entry[j].inum!=0)
                 continue;
             entry[j].inum=inum;
             entry[j].name[0]=fname[0];
             entry[j].name[1]=fname[1];
             entry[j].name[2]=fname[2];
-            printf("update -> inum:%d 파일명:%s\n", entry[j].inum, entry[j].name);
             break;
         }
     }
@@ -270,8 +200,6 @@ int delete_file(char fname[3]){
     }
     // d-bmap에서 0으로 바꾸기
     inode *file_inode=(inode *)inode_table+inum;
-    printf("지워아햘 inode 정보\n");
-    print_inode(file_inode);
     for(int i=0;i<file_inode->blocks;i++){
         int block=file_inode->pointer[i];
         *(dbmap+(block/8))^=(1<<(7-(block%8)));
@@ -302,15 +230,10 @@ int main(int argc, const char * argv[]) {
     char fname[3], command;
     int size=0;
     while(fscanf(fd, "%s %c", fname, &command)!=EOF){
-        printf("\n=========================================\n");
-        printf("\n파일이름 : %s\n", fname);
-        printf("명령어 : %c\n", command);
+        
         if(command!='d'){
             // size in bytes
-            if(fscanf(fd, "%d", &size)!=EOF){
-                printf("크기 : %d\n", size);
-            }
-            else{
+            if(fscanf(fd, "%d", &size)==EOF){
                 return 1;
             }
         }
@@ -325,11 +248,9 @@ int main(int argc, const char * argv[]) {
             printf("No such command\n");
             return 1;
         }
-        printf("=========================================\n");
         
     }
-    print_disk();
+
     fin(fd);
-    
     return 0;
 }
