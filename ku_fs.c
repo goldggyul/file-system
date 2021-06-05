@@ -130,6 +130,17 @@ int write_file(char fname[3], int size){
         // No space
         if(dblock==-1){
             printf("No space\n");
+            // Roll back
+            file_inode->fsize=0;
+            file_inode->blocks=0;
+            for(int j=0;j<i;j++){
+                // d-bmap에서 0으로 바꾸기
+                int block=file_inode->pointer[i];
+                file_inode->pointer[i]=0;
+                *(dbmap+(block/8))^=(1<<(7-(block%8)));
+            }
+            // i-bmap에서 0으로 바꾸기
+            *(ibmap+(inum/8))&=(0xFF-(1<<(7-(inum%8))));
             return 1;
         }
         // 2. (direct) pointer to data block (not real 'pointer')
@@ -198,37 +209,6 @@ void print_disk(void){
     for(int i=0;i<PARTITION_SIZE;i++){
         unsigned char val=*((unsigned char *)disk+i);
         printf("%.2x ", val);      
-    }
-}
-
-void print_disk2(void){
-    int prior=-1;
-    for(int i=0;i<PARTITION_SIZE;i++){
-        if(i==BLOCK_SIZE){
-            printf("%d:ibmap 시작\n", i);
-        }else if(i==BLOCK_SIZE*2){
-            printf("%d:dbmap 시작\n", i);
-        }else if(i==BLOCK_SIZE*3){
-            printf("%d:inode table 시작\n", i);
-        }else if(i==BLOCK_SIZE*8){
-            printf("%d:data region 시작\n", i);
-        }
-        unsigned char val=*((unsigned char *)disk+i);
-        if(val !=0){
-            if(prior!=-1 &&prior==val){
-                printf("%d: %.2x ", i,val);
-                continue;
-            }else{
-                printf("\n");
-                printf("%d: %.2x ", i,val);
-                prior=val;
-            }
-        }else{
-            if(prior!=-1){
-                printf("\n");
-                prior=-1;
-            }
-        }
     }
 }
 
