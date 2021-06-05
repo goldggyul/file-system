@@ -29,7 +29,7 @@ typedef struct dentry{
 
 int get_empty(unsigned char *bmap, int count){
     // 비트맵(for inode or data block)을 보고
-    // 사용가능한(즉 0인)비트 중 가장 앞에 있는 변호 번환
+    // 사용가능한(즉 0인)비트 중 가장 앞에 있는 번호 번환
     // bmap도 업데이트
     // 꽉찼을 시 -1
     for (int i=0;i<count;i++){
@@ -134,7 +134,7 @@ int write_file(char fname[3], int size){
         // 2. (direct) pointer to data block (not real 'pointer')
         file_inode->pointer[i]=dblock;
     }
-    
+
     // 데이터 넣기
     for(int i=0;i<size;i++){
         *((unsigned char*)data_region+file_inode->pointer[i/BLOCK_SIZE]*BLOCK_SIZE+(i%BLOCK_SIZE))=fname[0];
@@ -160,12 +160,6 @@ int write_file(char fname[3], int size){
 }
 
 int read_file(char fname[3], int size){
-    // 2. command - r
-    // 사이즈만큼 읽음. offset은 무시
-    //    Success
-    //      • Do printf() file contents as much as min(fsize, size); printf(“\n”);
-    //    Fail
-    //      • printf(“No such file\n”);
     int inum=search_name(fname,0);
     if(inum==-1){
         printf("No such file\n");
@@ -181,18 +175,8 @@ int read_file(char fname[3], int size){
 }
 
 int delete_file(char fname[3]){
-    // 3. command - d
-    // 해당 파일이 소유한 inode와 data-block에 대응하는 비트를
-    // i-bmap과 d-bmap에서 0으로 변경
-    // 또한, root directory에서 해당 파일의 inum을 0으로 변경
-    //    Success: nothing
-    //    Fail
-    //      • printf(“No such file\n”)
-    
-    // search + root directory에서 inum을 0으로 변경 (두번째 인자 1)
-
+    // search_name: search + root directory에서 inum을 0으로 변경 (두번째 인자 1)
     int inum=search_name(fname,1);
-
 
     if(inum==-1){
         printf("No such file\n");
