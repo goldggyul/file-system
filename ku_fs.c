@@ -121,6 +121,9 @@ int write_file(char fname[3], int size){
     // 1. fsize : 80개의 inodes 가능, 각 파일을 표현하기 위해 inum(1B)/Name(3B) 필요
     file_inode->fsize=size;
     file_inode->blocks=size/BLOCK_SIZE+1;
+    if(size%BLOCK_SIZE==0){
+        file_inode->blocks=file_inode->blocks-1;
+    }
     
     for(int i=0;i<file_inode->blocks;i++){
         int dblock=get_empty(dbmap,DATA_BLOCK_COUNT);
