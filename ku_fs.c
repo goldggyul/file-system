@@ -39,9 +39,7 @@ int get_empty(unsigned char *bmap, int count){
             return i;
         }
     }
-
     return -1;
-    
 }
 
 int init(void){
@@ -193,6 +191,13 @@ int delete_file(char fname[3]){
     return 0;
 }
 
+void print_disk(void){
+    for(int i=0;i<PARTITION_SIZE;i++){
+        unsigned char val=*((unsigned char *)disk+i);
+        printf("%.2x ", val);      
+    }
+}
+
 int main(int argc, const char * argv[]) {
     // Open file
     FILE *fd=NULL;
@@ -214,14 +219,12 @@ int main(int argc, const char * argv[]) {
     char fname[3], command;
     int size=0;
     while(fscanf(fd, "%s %c", fname, &command)!=EOF){
-        
         if(command!='d'){
             // size in bytes
             if(fscanf(fd, "%d", &size)==EOF){
                 return 1;
             }
         }
-        
         if(command=='w'){
             write_file(fname, size);
         }else if(command=='r'){
@@ -232,9 +235,8 @@ int main(int argc, const char * argv[]) {
             printf("No such command\n");
             return 1;
         }
-        
     }
-
+    print_disk();
     fin(fd);
     return 0;
 }
