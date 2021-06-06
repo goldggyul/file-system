@@ -125,6 +125,15 @@ int write_file(char fname[3], int size){
         file_inode->blocks=file_inode->blocks-1;
     }
     
+    if(file_inode->blocks>12){
+        file_inode->fsize=0;
+        file_inode->blocks=0;
+        // i-bmap에서 0으로 바꾸기
+        *(ibmap+(inum/8))&=(0xFF-(1<<(7-(inum%8))));
+        printf("No space\n");
+        return 1;
+    }
+
     for(int i=0;i<file_inode->blocks;i++){
         int dblock=get_empty(dbmap,DATA_BLOCK_COUNT);
         // No space
@@ -135,8 +144,8 @@ int write_file(char fname[3], int size){
             file_inode->blocks=0;
             for(int j=0;j<i;j++){
                 // d-bmap에서 0으로 바꾸기
-                int block=file_inode->pointer[i];
-                file_inode->pointer[i]=0;
+                int block=file_inode->pointer[j];
+                file_inode->pointer[j]=0;
                 *(dbmap+(block/8))^=(1<<(7-(block%8)));
             }
             // i-bmap에서 0으로 바꾸기
@@ -239,6 +248,7 @@ int main(int argc, const char * argv[]) {
                 return 1;
             }
         }
+        
         if(command=='w'){
             write_file(fname, size);
         }else if(command=='r'){
